@@ -1,0 +1,7 @@
+build/
+*.z64
+*.o
+*.elf
+*.pce
+*.blob
+__pycache__/

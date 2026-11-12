@@ -1,0 +1,194 @@
+/* libdragon's n64.ld with one change: the .text.pcehot section first */
+/* ========================================================================
+ *
+ * n64.ld -- Libdragon linker script
+ *
+ * Originally based on n64ld.x, developed by Frank Somers <frank@g0dev.com>,
+ * with modifications by hcs (halleyscometsoftware@hotmail.com),
+ * released under the Unlicense.
+ * ========================================================================
+ */
+
+OUTPUT_FORMAT ("elf32-bigmips", "elf32-bigmips", "elf32-littlemips")
+OUTPUT_ARCH (mips)
+EXTERN (_start)
+ENTRY (_start)
+
+PHDRS
+{
+    irq PT_LOAD AT ( 0x80000000 );
+    main PT_LOAD AT ( 0x80000400 );
+}
+
+SECTIONS {
+    .intvectors 0x80000000 : {
+        . = ALIGN(32);
+        KEEP(*(.intvectors))
+        __intvectors_end = .;
+    } :irq
+
+    /* The text section carries the app code and its relocation addr is
+    * the first byte of the cart domain in cached, unmapped memory
+    */
+    .text 0x80000400 : {
+        __text_start = .;
+        *(.boot)
+        . = ALIGN(16);
+        /* PCE64: the emulator's per-event C code together (no I-cache
+           conflicts within it) and at a known place */
+        __pcehot_start = .;
+        KEEP(*(.text.pcehot1))
+        __pcehot1_end = .;
+        KEEP(*(.text.pcehot))
+        __pcehot_end = .;
+        KEEP(*(.text.pcewarm))
+        /* the libdragon and libc code the frame loop runs, then the frame
+           loop itself: fixed places, whatever else changes */
+        *libdragon.a:rdpq*.o(.text .text.*)
+        *libdragon.a:rspq.o(.text .text.*)
+        *libdragon.a:display.o(.text .text.*)
+        *libdragon.a:surface.o(.text .text.*)
+        *libdragon.a:audio.o(.text .text.*)
+        *libdragon.a:joypad.o(.text .text.*)
+        *libdragon.a:joybus.o(.text .text.*)
+        *libdragon.a:interrupt.o(.text .text.*)
+        *libdragon.a:inthandler.o(.text .text.*)
+        *libc.a:lib_a-memset.o(.text .text.*)
+        *libc.a:lib_a-memcpy.o(.text .text.*)
+        *libc.a:lib_a-memcmp.o(.text .text.*)
+        *libc.a:lib_a-memmove.o(.text .text.*)
+        __pcewarm_end = .;
+        KEEP(*(.text.pcemain))
+        . = ALIGN(16);
+        *(.text)
+        *(.text.*)
+        KEEP(*(keep.text.*))
+        *(.init)
+        *(.fini)
+        *(.gnu.linkonce.t.*)
+        . = ALIGN(16);
+        __text_end  = .;
+    } :main
+
+   .eh_frame_hdr : { *(.eh_frame_hdr) }
+   .eh_frame : { 
+        __EH_FRAME_BEGIN__ = .; /* Define symbol for accessing eh_frame section */
+        KEEP (*(.eh_frame)) 
+    }
+   .gcc_except_table : { *(.gcc_except_table*) } 
+   .jcr : { KEEP (*(.jcr)) } 
+
+    .rodata : {
+        *(.rdata)
+        *(.rodata)
+        *(.rodata.*)
+        KEEP(*(keep.rodata.*))
+        *(.gnu.linkonce.r.*)
+        . = ALIGN(8);
+    }
+
+    /* This is important to keep __CTOR_END__ consistent */
+    . = ALIGN(4);
+
+    .ctors : {
+        __CTOR_LIST__ = .;
+        /* Actually we should place the count here like;
+
+        LONG((__CTOR_END__ - __CTOR_LIST__) / 4 - 2)
+
+        but g++ seem to already do this (though incorrectly placing an 0xFFFFFFFF)
+        and that breaks things if we also add it. Ideally this should be parsed
+        by the code but we already know the end as well.
+
+        The new build system links everything via g++ by default and should use
+        __wrap___do_global_ctors and enables it via the --wrap linker option.
+        When linking with ld, we should use __do_global_ctors, which is the default
+        if you don't provide the --wrap option. */
+        KEEP(*(.ctors))
+         /* Similarly we should have a;
+
+        LONG(0)
+
+        here, and g++ seem to insert it at __CTOR_END__ */
+        __CTOR_END__ = .;
+    }
+
+    . = ALIGN(8);
+
+    /* Data section has relocation address at start of RAM in cached,
+    * unmapped memory, but is loaded just at the end of the text segment,
+    * and must be copied to the correct location at startup
+    * Gather all initialised data together.  The memory layout
+    * will place the global initialised data at the lowest addrs.
+    * The lit8, lit4, sdata and sbss sections have to be placed
+    * together in that order from low to high addrs with the _gp symbol
+    * positioned (aligned) at the start of the sdata section.
+    * We then finish off with the standard bss section
+    */
+    .data : {
+        __data_start = .;
+        *(.data)
+        *(.data.*)
+        KEEP(*(keep.data.*))
+        *(.gnu.linkonce.d.*)
+        . = ALIGN(8);
+    }
+        
+    /* Small data START */
+
+    .sdata : {
+        _gp = . + 0x8000;
+        *(.sdata)
+        *(.sdata.*)
+        *(.gnu.linkonce.s.*)
+        . = ALIGN(8);
+    }
+
+    .lit8 : {
+        *(.lit8)
+        . = ALIGN(8);
+    }
+    .lit4 : {
+        *(.lit4)
+        . = ALIGN(8);
+    }
+
+    . = ALIGN(8);
+    __data_end = .;
+
+    /* Here the ROM is finished. The rest is just in RAM */
+    . = ALIGN(8);
+    __rom_end = .;
+
+    .sbss : {
+         __bss_start = .;
+        *(.sbss)
+        *(.sbss.*)
+        *(.gnu.linkonce.sb.*)
+        *(.scommon)
+        *(.scommon.*)
+    }
+
+    /* Small data END */
+
+    . = ALIGN(8);
+    .bss : {
+        *(.bss)
+        *(.bss*)
+        *(.gnu.linkonce.b.*)
+        *(COMMON)
+        . = ALIGN(8);
+         __bss_end = .;
+    }
+
+    . = ALIGN(8);
+
+    /* Deprecated */
+    end = .;
+}
+
+/* Give an assert for a too huge binary. The maximum allowed size here is 8 MiB,
+   minus the space for the stack and the initial low memory section. 
+   Notice the exact size doesn't matter much: we want to detect mistakes that
+   would be much harder to find at runtime when no heap is available... */
+ASSERT(end - __text_start <= 8*1024*1024 - 64*1024 - 1024, "ERROR: the generated ELF is too big for N64 memory")

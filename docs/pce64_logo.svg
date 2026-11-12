@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" width="1200" height="600">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#15171c"/><stop offset="1" stop-color="#23262e"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="600" rx="36" fill="url(#bg)"/>
+  <!-- a generic game card with edge contacts -->
+  <g transform="translate(110 150) rotate(-8 130 150)">
+    <rect width="260" height="300" rx="18" fill="#f2efe6"/>
+    <rect x="22" y="24" width="216" height="150" rx="10" fill="#e8552d"/>
+    <rect x="22" y="24" width="216" height="50" rx="10" fill="#f59b23"/>
+    <rect x="22" y="56" width="216" height="18" fill="#f59b23"/>
+    <g fill="#15171c">
+      <rect x="30" y="232" width="10" height="68"/><rect x="48" y="232" width="10" height="68"/>
+      <rect x="66" y="232" width="10" height="68"/><rect x="84" y="232" width="10" height="68"/>
+      <rect x="102" y="232" width="10" height="68"/><rect x="120" y="232" width="10" height="68"/>
+      <rect x="138" y="232" width="10" height="68"/><rect x="156" y="232" width="10" height="68"/>
+      <rect x="174" y="232" width="10" height="68"/><rect x="192" y="232" width="10" height="68"/>
+      <rect x="210" y="232" width="10" height="68"/><rect x="228" y="232" width="10" height="68"/>
+    </g>
+  </g>
+  <g font-family="'DejaVu Sans','Arial Black',Arial,sans-serif" font-weight="800">
+    <text x="440" y="345" font-size="190" fill="#f2efe6" letter-spacing="-6">PCE</text>
+    <text x="850" y="345" font-size="190" fill="#f59b23" letter-spacing="-6">64</text>
+    <text x="446" y="415" font-size="34" font-weight="400" fill="#9aa0ad" letter-spacing="3">HuCard emulator for the N64</text>
+  </g>
+  <rect x="446" y="445" width="640" height="8" rx="4" fill="#e8552d"/>
+</svg>

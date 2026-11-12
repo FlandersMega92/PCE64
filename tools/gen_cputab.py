@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""Generate core/cpu_tab.h: per-opcode addressing mode, operation and base cycles
+for the table-driven HuC6280 interpreter."""
+import sys
+
+MODES = ["IMP", "IMM", "ZP", "ZPX", "ZPY", "ABS", "ABX", "ABY", "IZX", "IZY", "IZP"]
+# operations that read their operand from memory (mode computes ea, then reads)
+READ_OPS = {"LDA", "LDX", "LDY", "ORA", "AND", "EOR", "ADC", "SBC", "CMP", "CPX", "CPY", "BIT",
+            "ASL", "LSR", "ROL", "ROR", "INC", "DEC", "TSB", "TRB", "RMB", "SMB"}
+
+tab = {}
+def op(code, name, mode, cyc):
+    assert code not in tab, hex(code)
+    tab[code] = (name, mode, cyc)
+
+def group(name, base, modes):
+    offs = {"IMM": 0x09, "ZP": 0x05, "ZPX": 0x15, "ABS": 0x0D, "ABX": 0x1D, "ABY": 0x19,
+            "IZX": 0x01, "IZY": 0x11, "IZP": 0x12}
+    cyc = {"IMM": 2, "ZP": 4, "ZPX": 4, "ABS": 5, "ABX": 5, "ABY": 5, "IZX": 7, "IZY": 7, "IZP": 7}
+    for m in modes:
+        op(base + offs[m], name, m, cyc[m])
+
+ALL9 = ["IMM", "ZP", "ZPX", "ABS", "ABX", "ABY", "IZX", "IZY", "IZP"]
+for n, b in (("ORA", 0x00), ("AND", 0x20), ("EOR", 0x40), ("ADC", 0x60), ("CMP", 0xC0), ("SBC", 0xE0)):
+    group(n, b, ALL9)
+# LDA / STA
+for m, c in (("IMM", 2), ("ZP", 4), ("ZPX", 4), ("ABS", 5), ("ABX", 5), ("ABY", 5), ("IZX", 7), ("IZY", 7), ("IZP", 7)):
+    pass
+op(0xA9, "LDA", "IMM", 2); op(0xA5, "LDA", "ZP", 4); op(0xB5, "LDA", "ZPX", 4); op(0xAD, "LDA", "ABS", 5)
+op(0xBD, "LDA", "ABX", 5); op(0xB9, "LDA", "ABY", 5); op(0xA1, "LDA", "IZX", 7); op(0xB1, "LDA", "IZY", 7); op(0xB2, "LDA", "IZP", 7)
+op(0xA2, "LDX", "IMM", 2); op(0xA6, "LDX", "ZP", 4); op(0xB6, "LDX", "ZPY", 4); op(0xAE, "LDX", "ABS", 5); op(0xBE, "LDX", "ABY", 5)
+op(0xA0, "LDY", "IMM", 2); op(0xA4, "LDY", "ZP", 4); op(0xB4, "LDY", "ZPX", 4); op(0xAC, "LDY", "ABS", 5); op(0xBC, "LDY", "ABX", 5)
+op(0x85, "STA", "ZP", 4); op(0x95, "STA", "ZPX", 4); op(0x8D, "STA", "ABS", 5); op(0x9D, "STA", "ABX", 5); op(0x99, "STA", "ABY", 5)
+op(0x81, "STA", "IZX", 7); op(0x91, "STA", "IZY", 7); op(0x92, "STA", "IZP", 7)
+op(0x86, "STX", "ZP", 4); op(0x96, "STX", "ZPY", 4); op(0x8E, "STX", "ABS", 5)
+op(0x84, "STY", "ZP", 4); op(0x94, "STY", "ZPX", 4); op(0x8C, "STY", "ABS", 5)
+op(0x64, "STZ", "ZP", 4); op(0x74, "STZ", "ZPX", 4); op(0x9C, "STZ", "ABS", 5); op(0x9E, "STZ", "ABX", 5)
+op(0xE0, "CPX", "IMM", 2); op(0xE4, "CPX", "ZP", 4); op(0xEC, "CPX", "ABS", 5)
+op(0xC0, "CPY", "IMM", 2); op(0xC4, "CPY", "ZP", 4); op(0xCC, "CPY", "ABS", 5)
+op(0x89, "BIT", "IMM", 2); op(0x24, "BIT", "ZP", 4); op(0x34, "BIT", "ZPX", 4); op(0x2C, "BIT", "ABS", 5); op(0x3C, "BIT", "ABX", 5)
+for n, b in (("ASL", 0x00), ("ROL", 0x20), ("LSR", 0x40), ("ROR", 0x60), ("DEC", 0xC0), ("INC", 0xE0)):
+    op(b + 0x06, n, "ZP", 6); op(b + 0x16, n, "ZPX", 6); op(b + 0x0E, n, "ABS", 7); op(b + 0x1E, n, "ABX", 7)
+op(0x0A, "ASLA", "IMP", 2); op(0x4A, "LSRA", "IMP", 2); op(0x2A, "ROLA", "IMP", 2); op(0x6A, "RORA", "IMP", 2)
+op(0x1A, "INA", "IMP", 2); op(0x3A, "DEA", "IMP", 2)
+op(0xE8, "INX", "IMP", 2); op(0xC8, "INY", "IMP", 2); op(0xCA, "DEX", "IMP", 2); op(0x88, "DEY", "IMP", 2)
+op(0x04, "TSB", "ZP", 6); op(0x0C, "TSB", "ABS", 7); op(0x14, "TRB", "ZP", 6); op(0x1C, "TRB", "ABS", 7)
+op(0x83, "TST", "IMP", 7); op(0xA3, "TST", "IMP", 7); op(0x93, "TST", "IMP", 8); op(0xB3, "TST", "IMP", 8)
+for n in range(8):
+    op(0x07 + (n << 4), "RMB", "ZP", 7)
+    op(0x87 + (n << 4), "SMB", "ZP", 7)
+    op(0x0F + (n << 4), "BBR", "IMP", 6)
+    op(0x8F + (n << 4), "BBS", "IMP", 6)
+for c in (0x10, 0x30, 0x50, 0x70, 0x90, 0xB0, 0xD0, 0xF0):
+    op(c, "BCC_", "IMP", 2)
+op(0x80, "BRA", "IMP", 2)
+op(0x4C, "JMP", "IMP", 4); op(0x6C, "JMPI", "IMP", 7); op(0x7C, "JMPX", "IMP", 7)
+op(0x20, "JSR", "IMP", 7); op(0x44, "BSR", "IMP", 8); op(0x60, "RTS", "IMP", 7); op(0x40, "RTI", "IMP", 7)
+op(0x00, "BRK", "IMP", 8)
+op(0x48, "PHA", "IMP", 3); op(0xDA, "PHX", "IMP", 3); op(0x5A, "PHY", "IMP", 3); op(0x08, "PHP", "IMP", 3)
+op(0x68, "PLA", "IMP", 4); op(0xFA, "PLX", "IMP", 4); op(0x7A, "PLY", "IMP", 4); op(0x28, "PLP", "IMP", 4)
+op(0xAA, "TAX", "IMP", 2); op(0xA8, "TAY", "IMP", 2); op(0x8A, "TXA", "IMP", 2); op(0x98, "TYA", "IMP", 2)
+op(0xBA, "TSX", "IMP", 2); op(0x9A, "TXS", "IMP", 2)
+op(0x22, "SAX", "IMP", 3); op(0x42, "SAY", "IMP", 3); op(0x02, "SXY", "IMP", 3)
+op(0x62, "CLA", "IMP", 2); op(0x82, "CLX", "IMP", 2); op(0xC2, "CLY", "IMP", 2)
+op(0x18, "CLC", "IMP", 2); op(0x38, "SEC", "IMP", 2); op(0x58, "CLI", "IMP", 2); op(0x78, "SEI", "IMP", 2)
+op(0xB8, "CLV", "IMP", 2); op(0xD8, "CLD", "IMP", 2); op(0xF8, "SED", "IMP", 2)
+op(0xF4, "SET", "IMP", 2); op(0xEA, "NOP", "IMP", 2)
+op(0x54, "CSL", "IMP", 3); op(0xD4, "CSH", "IMP", 3)
+op(0x53, "TAM", "IMP", 5); op(0x43, "TMA", "IMP", 4)
+op(0x03, "ST0", "IMP", 5); op(0x13, "ST1", "IMP", 5); op(0x23, "ST2", "IMP", 5)
+for c in (0x73, 0xC3, 0xD3, 0xE3, 0xF3):
+    op(c, "BLK", "IMP", 0)
+
+ops = []
+for c in range(256):
+    if c not in tab:
+        tab[c] = ("NOP", "IMP", 2)
+for c in range(256):
+    n = tab[c][0]
+    if n not in ops:
+        ops.append(n)
+
+out = ["/* generated by tools/gen_cputab.py */", "enum {"]
+out += [f"    M_{m}," for m in MODES]
+out += ["};", "enum {"]
+out += [f"    O_{o}," for o in ops]
+out += ["    O_COUNT", "};"]
+def enc(c):
+    n, m, cy = tab[c]
+    rd = 1 if n in READ_OPS and m != "IMM" and m != "IMP" else 0
+    return MODES.index(m) | (rd << 4)
+out.append("static const uint8_t op_mode[256] = {")
+for r in range(16):
+    out.append("    " + ", ".join(f"{enc(r * 16 + i):#04x}" for i in range(16)) + ",")
+out.append("};")
+out.append("static const uint8_t op_kind[256] = {")
+for r in range(16):
+    out.append("    " + ", ".join(f"O_{tab[r * 16 + i][0]}" for i in range(16)) + ",")
+out.append("};")
+out.append("static const uint8_t op_cyc[256] = {")
+for r in range(16):
+    out.append("    " + ", ".join(str(tab[r * 16 + i][2]) for i in range(16)) + ",")
+out.append("};")
+open(sys.argv[1], "w").write("\n".join(out) + "\n")
+print(f"{len(ops)} operations")
